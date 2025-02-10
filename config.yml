@@ -1,0 +1,66 @@
+# config.yml
+
+app:
+  name: "Survey Weighting Suite"
+  version: "1.0.0"
+  debug: false
+  
+settings:
+  max_upload_size: 30 * 1024^2  # 30MB
+  max_rows: 1000000
+  max_iterations: 1000
+  default_convergence_threshold: 1e-6
+
+# update to YouGov colorz lulz  
+theme:
+  primary_color: "#1a1a2e"
+  secondary_color: "#e94560"
+  accent_color: "#16213e"
+  waiter_color: "rgba(26, 26, 46, 0.8)"
+  
+methods:
+  post_stratification:
+    enabled: true
+    max_strata: 100
+    
+  raking:
+    enabled: true
+    max_dimensions: 10
+    
+  calibration:
+    enabled: true
+    default_bounds: [0, 10]
+    
+  ipw:
+    enabled: true
+    supported_models:
+      - logistic
+      - random_forest
+      - gbm
+
+export:
+  formats:
+    - csv
+    - xlsx
+    - sav
+    - rds
+  max_size: 500 * 1024^2  # 500MB
+  
+logging:
+  level: "INFO"
+  file: "logs/app.log"
+  max_size: 10 * 1024^2  # 10MB
+  backup_count: 5
+  
+security:
+  max_file_size: 30 * 1024^2  # 30MB
+  allowed_extensions:
+    - .csv
+    - .xlsx
+    - .sav
+    - .rds
+
+shiny:
+  maxRequestSize: 30 * 1024^2  # 30MB
+  maxFileSize: 30 * 1024^2  # 30MB
+

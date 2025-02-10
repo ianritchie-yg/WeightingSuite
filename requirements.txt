@@ -1,0 +1,15 @@
+shiny
+shinydashboard
+shinydashboardPlus
+shinyjs
+shinyWidgets
+waiter
+DT
+plotly
+tidyverse
+haven
+openxlsx
+readxl
+rmarkdown
+logger
+yaml

@@ -1,0 +1,10 @@
+name: weightingsuite
+title:
+username: ianritchie-yg
+account: ianritchie-yg
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13951828
+bundleId: 9774355
+url: https://ianritchie-yg.shinyapps.io/weightingsuite/
+version: 1

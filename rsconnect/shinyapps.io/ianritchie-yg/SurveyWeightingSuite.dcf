@@ -1,0 +1,10 @@
+name: SurveyWeightingSuite
+title: Survey Data Weighting Suite
+username: ianritchie-yg
+account: ianritchie-yg
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13951863
+bundleId: 9774631
+url: https://ianritchie-yg.shinyapps.io/SurveyWeightingSuite/
+version: 1
