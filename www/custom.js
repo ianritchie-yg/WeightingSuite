@@ -108,4 +108,19 @@ $(document).ready(function() {
     
     Shiny.setInputValue('performance_log', performanceLog);
   };
+  
+  // Real-time validation feedback
+  $(document).on('change', '.target-input', function() {
+    var input = $(this);
+    var values = input.val().split(',').map(Number);
+    var sum = values.reduce((a, b) => a + b, 0);
+    
+    if (Math.abs(sum - 1) > 0.01) {
+      input.addClass('has-error');
+      input.next('.help-block').text('Sum should be close to 1 (current: ' + sum.toFixed(3) + ')');
+    } else {
+      input.removeClass('has-error');
+      input.next('.help-block').text('');
+    }
+  });
 });

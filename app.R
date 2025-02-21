@@ -1,6 +1,6 @@
 # app.R
 # Survey Weighting Suite - Main Application
-# Version 1.0.0
+# Version 2.1.0
 
 # 1. Package Loading -------------------------------------------------------------
 if (!require("pacman")) install.packages("pacman", repos = "https://cloud.r-project.org")
@@ -23,6 +23,17 @@ pacman::p_load(
   rmarkdown,
   logger,
   yaml,
+  survey,
+  srvyr,
+  sampling,
+  data.table,
+  parallel,
+  future,
+  future.apply,
+  progressr,
+  shinyvalidate,
+  rmarkdown,
+  knitr,
   character.only = FALSE
 )
 
@@ -205,20 +216,27 @@ weightingTab <- tabItem(
       selectInput("weighting_method",
                   "Select Weighting Method",
                   choices = c(
-                    "Post-stratification" = "post_strat",
-                    "Raking" = "raking",
-                    "Calibration" = "calibration",
-                    "IPW" = "ipw"
+                    "Rake Weighting (Iterative Proportional Fitting)" = "raking",
+                    "Post-stratification (Full Cross-classification)" = "post_strat",
+                    "Calibration (Linear Relationship)" = "calibration",
+                    "Inverse Probability Weighting (Selection Model)" = "ipw"
                   )
       ),
-      uiOutput("method_parameters")
+      helpText(HTML("
+        <strong>Method Guide:</strong><br/>
+        • <u>Rake Weighting</u>: Best for matching marginal distributions<br/>
+        • <u>Post-stratification</u>: For complete population cross-tabs<br/>
+        • <u>Calibration</u>: Uses auxiliary variables linearly<br/>
+        • <u>IPW</u>: Models selection/participation probability
+      "))
     ),
     box(
       title = "Variable Selection",
       status = "info",
       solidHeader = TRUE,
       width = 6,
-      uiOutput("variable_selection")
+      uiOutput("variable_selection"),
+      uiOutput("target_inputs")
     )
   ),
   fluidRow(
@@ -242,6 +260,15 @@ diagnosticsTab <- tabItem(
   tabName = "diagnostics",
   fluidRow(
     box(
+      title = "Variable Distribution Comparison",
+      status = "primary",
+      solidHeader = TRUE,
+      width = 12,
+      selectInput("diagnostic_var", "Select Variable for Comparison",
+                  choices = NULL),
+      plotlyOutput("weight_comparison")
+    ),
+    box(
       title = "Weight Distribution",
       status = "primary",
       solidHeader = TRUE,
@@ -263,6 +290,13 @@ diagnosticsTab <- tabItem(
       solidHeader = TRUE,
       width = 12,
       tableOutput("summary_stats")
+    ),
+    box(
+      title = "Weight Quality Indicators",
+      status = "warning",
+      solidHeader = TRUE,
+      width = 12,
+      verbatimTextOutput("weight_warnings")
     )
   )
 )
@@ -336,6 +370,21 @@ ui <- dashboardPage(
 
 # 8. Server Logic ---------------------------------------------------------
 server <- function(input, output, session) {
+  # Initialize input validator
+  iv <- InputValidator$new()
+  
+  # Add validation rules for target inputs
+  iv$add_rule("target_inputs", function(value) {
+    if (is.null(value)) return("Target proportions are required")
+    targets <- as.numeric(strsplit(value, ",")[[1]])
+    if (abs(sum(targets) - 1) > 0.01) {
+      sprintf("Sum of proportions (%.3f) should be close to 1", sum(targets))
+    }
+  })
+  
+  # Enable validation
+  iv$enable()
+  
   # Initialize reactive values
   values <- reactiveValues(
     data = NULL,
@@ -376,6 +425,24 @@ server <- function(input, output, session) {
       showNotification(paste("Error:", e$message), type = "error")
       log_error(paste("Data loading error:", e$message))
     })
+    
+    if (nrow(values$data) > 1e6) {
+      showModal(modalDialog(
+        title = "Large Dataset Detected",
+        "Would you like to use sampling for initial testing?",
+        footer = tagList(
+          actionButton("use_sample", "Use 10% Sample"),
+          actionButton("use_full", "Use Full Dataset")
+        )
+      ))
+    }
+  })
+  
+  # Handle sampling choice
+  observeEvent(input$use_sample, {
+    sample_size <- ceiling(nrow(values$data) * 0.1)
+    values$data <- values$data[sample(nrow(values$data), sample_size), ]
+    removeModal()
   })
   
   # Data Preview
@@ -385,32 +452,218 @@ server <- function(input, output, session) {
               options = list(scrollX = TRUE))
   })
   
-  # Weight Computation
-  observeEvent(input$compute_weights, {
+  # Dynamic UI for variable selection
+  output$variable_selection <- renderUI({
     req(values$data)
+    tagList(
+      selectizeInput("weight_vars", "Weighting Variables",
+                     choices = names(values$data),
+                     multiple = TRUE),
+      checkboxInput("use_strata", "Use Stratification", FALSE),
+      conditionalPanel(
+        condition = "input.use_strata == true",
+        selectInput("strata_var", "Stratification Variable",
+                   choices = c("None", names(values$data)))
+      )
+    )
+  })
+
+  # Enhanced target input validation with real-time feedback
+  observe({
+    req(input$weight_vars)
+    for (var in input$weight_vars) {
+      if (!is.null(input[[paste0("target_", var)]])) {
+        tryCatch({
+          targets <- as.numeric(strsplit(input[[paste0("target_", var)]], ",")[[1]])
+          levels <- unique(values$data[[var]])
+          validate_targets(var, targets, levels)
+          updateTextInput(session, 
+                         paste0("target_", var),
+                         value = input[[paste0("target_", var)]],
+                         status = "success")
+        }, error = function(e) {
+          updateTextInput(session,
+                         paste0("target_", var),
+                         value = input[[paste0("target_", var)]],
+                         status = "error")
+        })
+      }
+    }
+  })
+
+  # Enhanced target inputs with default values
+  output$target_inputs <- renderUI({
+    req(input$weight_vars)
+    tagList(
+      lapply(input$weight_vars, function(var) {
+        levels <- unique(values$data[[var]])
+        default_props <- rep(1/length(levels), length(levels))
+        div(
+          textInput(
+            paste0("target_", var),
+            paste("Target proportions for", var),
+            placeholder = paste(default_props, collapse = ", ")
+          ),
+          helpText(sprintf(
+            "Enter %d comma-separated values (one per level) summing to 1", 
+            length(levels)
+          ))
+        )
+      })
+    )
+  })
+
+  # Enhanced weight computation with parallel processing
+  observeEvent(input$compute_weights, {
+    req(values$data, input$weight_vars)
     show_waiter()
     
-    tryCatch({
-      # Implement your weighting logic here
-      # This is a placeholder
-      values$weights <- rep(1, nrow(values$data))
-      values$diagnostics <- list(
-        convergence = data.frame(
-          iteration = 1:10,
-          error = runif(10, 0, 1)
+    # Enable parallel processing for large datasets
+    if (nrow(values$data) > 10000) {
+      plan(multisession)
+    }
+    
+    withProgress(message = "Computing weights...", value = 0, {
+      tryCatch({
+        # Validate all target inputs first
+        for (var in input$weight_vars) {
+          targets <- as.numeric(strsplit(input[[paste0("target_", var)]], ",")[[1]])
+          levels <- unique(values$data[[var]])
+          validate_targets(var, targets, levels)
+        }
+        
+        # Create survey design
+        design <- svydesign(
+          ids = ~1,
+          strata = if(input$use_strata) as.formula(paste("~", input$strata_var)) else ~1,
+          data = as.data.frame(values$data),
+          weights = NULL
         )
-      )
-      
-      hide_waiter()
-      showNotification("Weights computed successfully", type = "success")
-      
-    }, error = function(e) {
-      hide_waiter()
-      showNotification(paste("Error:", e$message), type = "error")
-      log_error(paste("Weight computation error:", e$message))
+        
+        # Convert to data.table for better performance
+        dt <- as.data.table(values$data)
+        
+        # Compute weights based on method
+        values$weights <- switch(input$weighting_method,
+          "raking" = {
+            # Prepare margins
+            margins <- lapply(input$weight_vars, function(var) {
+              targets <- as.numeric(strsplit(input[[paste0("target_", var)]], ",")[[1]])
+              setNames(targets, unique(values$data[[var]]))
+            })
+            
+            # Create formulas
+            formulas <- lapply(input$weight_vars, function(var) {
+              as.formula(paste("~", var))
+            })
+            
+            # Perform raking
+            rake_result <- rake(
+              design,
+              sample.margins = formulas,
+              population.margins = margins,
+              control = list(
+                maxit = input$max_iterations,
+                epsilon = input$convergence_threshold
+              )
+            )
+            
+            values$diagnostics$convergence <- data.frame(
+              iteration = seq_along(rake_result$iterations),
+              error = rake_result$iterations
+            )
+            
+            weights(rake_result)
+          },
+          "post_strat" = {
+            # Improved post-stratification with progress
+            post_vars <- paste(input$weight_vars, collapse = "+")
+            pop_table <- future_lapply(input$weight_vars, function(var) {
+              targets <- as.numeric(strsplit(input[[paste0("target_", var)]], ",")[[1]])
+              data.table(
+                var = unique(dt[[var]]),
+                freq = targets * nrow(dt)
+              )
+            })
+            
+            post_result <- postStratify(
+              design,
+              strata = as.formula(paste("~", post_vars)),
+              population = Reduce(merge, pop_table)
+            )
+            weights(post_result)
+          },
+          "calibration" = {
+            # Enhanced calibration with auxiliary variables
+            aux_vars <- paste(input$weight_vars, collapse = "+")
+            pop_totals <- future_lapply(input$weight_vars, function(var) {
+              targets <- as.numeric(strsplit(input[[paste0("target_", var)]], ",")[[1]])
+              setNames(targets * nrow(dt), unique(dt[[var]]))
+            })
+            
+            cal_result <- calibrate(
+              design,
+              formula = as.formula(paste("~", aux_vars)),
+              population = unlist(pop_totals),
+              bounds = c(0.2, 5)  # Prevent extreme weights
+            )
+            weights(cal_result)
+          },
+          "ipw" = {
+            # Advanced IPW with model diagnostics
+            model_vars <- paste(input$weight_vars, collapse = "+")
+            dt[, selection := 1]  # Add selection indicator
+            
+            model <- glm(
+              as.formula(paste("selection ~", model_vars)),
+              family = binomial(),
+              data = dt
+            )
+            
+            # Store model diagnostics
+            values$diagnostics$model <- summary(model)
+            
+            1 / predict(model, type = "response")
+          }
+        )
+        
+        # Compute diagnostics
+        values$diagnostics$summary <- data.frame(
+          metric = c(
+            "Effective Sample Size",
+            "Design Effect",
+            "CV of Weights",
+            "Maximum Weight",
+            "Minimum Weight",
+            "Proportion Extreme (>5 or <0.2)"
+          ),
+          value = c(
+            sum(values$weights)^2 / sum(values$weights^2),
+            mean(values$weights^2),
+            sd(values$weights) / mean(values$weights),
+            max(values$weights),
+            min(values$weights),
+            mean(values$weights > 5 | values$weights < 0.2)
+          )
+        )
+        
+        # Check for extreme weights
+        extreme_weights <- sum(values$weights > 5 | values$weights < 0.2)
+        if (extreme_weights > 0) {
+          warning(sprintf("%d weights are extreme (>5 or <0.2)", extreme_weights))
+        }
+        
+        hide_waiter()
+        showNotification("Weights computed successfully", type = "success")
+        
+      }, error = function(e) {
+        hide_waiter()
+        showNotification(paste("Error:", e$message), type = "error")
+        log_error(paste("Weight computation error:", e$message))
+      })
     })
   })
-  
+
   # Diagnostics Plots
   output$weight_distribution <- renderPlotly({
     req(values$weights)
@@ -427,6 +680,75 @@ server <- function(input, output, session) {
       layout(title = "Convergence Plot")
   })
   
+  # Enhanced diagnostics outputs
+  output$weight_comparison <- renderPlotly({
+    req(values$weights, input$diagnostic_var)
+    df <- data.frame(
+      value = values$data[[input$diagnostic_var]],
+      weight = values$weights
+    )
+    
+    plot_ly() %>%
+      add_histogram(data = df, x = ~value, name = "Unweighted",
+                   histnorm = "probability") %>%
+      add_histogram(data = df, x = ~value, weights = ~weight,
+                   name = "Weighted", histnorm = "probability") %>%
+      layout(barmode = "overlay",
+             title = paste("Distribution of", input$diagnostic_var),
+             xaxis = list(title = input$diagnostic_var),
+             yaxis = list(title = "Density"))
+  })
+
+  output$weight_warnings <- renderText({
+    req(values$weights)
+    warnings <- character()
+    
+    # Check for extreme weights
+    extreme_high <- sum(values$weights > 5)
+    extreme_low <- sum(values$weights < 0.2)
+    if (extreme_high > 0) {
+      warnings <- c(warnings, 
+                   sprintf("%d weights > 5 (%.1f%%)", 
+                          extreme_high, 100 * extreme_high/length(values$weights)))
+    }
+    if (extreme_low > 0) {
+      warnings <- c(warnings,
+                   sprintf("%d weights < 0.2 (%.1f%%)",
+                          extreme_low, 100 * extreme_low/length(values$weights)))
+    }
+    
+    # Check effective sample size
+    ess <- sum(values$weights)^2 / sum(values$weights^2)
+    if (ess < 0.5 * length(values$weights)) {
+      warnings <- c(warnings,
+                   sprintf("Low effective sample size: %.1f (%.1f%% of original)",
+                          ess, 100 * ess/length(values$weights)))
+    }
+    
+    if (length(warnings) == 0) {
+      "No weight quality issues detected."
+    } else {
+      paste("Warning:", paste(warnings, collapse = "\n"))
+    }
+  })
+
+  # Enhanced download handler
+  output$download_weights <- downloadHandler(
+    filename = function() {
+      paste0("weighted_data_", format(Sys.time(), "%Y%m%d_%H%M"), ".csv")
+    },
+    content = function(file) {
+      write.csv(
+        data.frame(
+          values$data,
+          weight = values$weights
+        ),
+        file,
+        row.names = FALSE
+      )
+    }
+  )
+
   # Theme Updates
   observeEvent(input$theme, {
     theme_settings <- switch(input$theme,

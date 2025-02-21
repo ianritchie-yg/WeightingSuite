@@ -167,3 +167,21 @@ generate_report <- function(data, weights, diagnostics,
     quiet = TRUE
   )
 }
+
+#' Generate weighted summary report
+#' @param data Original dataset
+#' @param weights Computed weights
+#' @param diagnostics Diagnostic information
+#' @param output_format Output format ("pdf" or "html")
+#' @return Path to generated report
+generate_weight_report <- function(data, weights, diagnostics, output_format = "html") {
+  # Create temporary Rmd file
+  rmd_content <- '
+---
+title: "Survey Weighting Report"
+date: "`r format(Sys.time(), "%Y-%m-%d %H:%M:%S")`"
+output: 
+  html_document:
+    theme: cosmo
+    toc: true
+---
