@@ -1,5 +1,5 @@
 # Survey Weighting Suite - Main Application
-# Version 1.0.0
+# Version 2.2.0
 
 # Source global settings and package management
 source("global.R")
