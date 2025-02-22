@@ -1,7 +1,34 @@
-# R/error_handling.R
-# Error handling utilities for Survey Weighting Suite
+library(R6)
+library(logger)
 
-#' Custom error class for validation errors
+# Error Code Constants
+ERROR_CODES <- list(
+  # Validation Errors
+  DATA_VALIDATION = list(
+    EMPTY_DATA = "ED001",
+    INVALID_FORMAT = "ED002",
+    MISSING_COLUMNS = "ED003",
+    INVALID_VALUES = "ED004"
+  ),
+  
+  # Computation Errors
+  WEIGHT_COMPUTATION = list(
+    CONVERGENCE_FAILED = "WC001",
+    NEGATIVE_WEIGHTS = "WC002",
+    EXTREME_WEIGHTS = "WC003",
+    ITERATION_LIMIT = "WC004"
+  ),
+  
+  # File Operations
+  FILE_OPERATIONS = list(
+    READ_ERROR = "FO001",
+    WRITE_ERROR = "FO002",
+    INVALID_PATH = "FO003",
+    PERMISSION_DENIED = "FO004"
+  )
+)
+
+# Custom Error Classes
 ValidationError <- R6::R6Class("ValidationError",
   public = list(
     message = NULL,
@@ -16,7 +43,6 @@ ValidationError <- R6::R6Class("ValidationError",
   )
 )
 
-#' Custom error class for computation errors
 ComputationError <- R6::R6Class("ComputationError",
   public = list(
     message = NULL,
@@ -31,6 +57,37 @@ ComputationError <- R6::R6Class("ComputationError",
   )
 )
 
+FileOperationError <- R6::R6Class("FileOperationError",
+  public = list(
+    message = NULL,
+    code = NULL,
+    file_path = NULL,
+    
+    initialize = function(message, code = "FILE_ERROR", file_path = NULL) {
+      self$message <- message
+      self$code <- code
+      self$file_path <- file_path
+    }
+  )
+)
+
+WeightComputationError <- R6::R6Class("WeightComputationError",
+  public = list(
+    message = NULL,
+    code = NULL,
+    method = NULL,
+    stats = NULL,
+    
+    initialize = function(message, code = "WEIGHT_ERROR", method = NULL, stats = list()) {
+      self$message <- message
+      self$code <- code
+      self$method <- method
+      self$stats <- stats
+    }
+  )
+)
+
+# Enhanced Validation Functions
 #' Validate input data
 #' @param data Input dataset
 #' @return List with validation results
@@ -38,173 +95,167 @@ validate_data <- function(data) {
   tryCatch({
     # Check if data is empty
     if (is.null(data) || nrow(data) == 0 || ncol(data) == 0) {
-      return(list(
-        valid = FALSE,
-        message = "Dataset is empty",
-        code = "EMPTY_DATA"
-      ))
+      throw_error("Dataset is empty", ERROR_CODES$DATA_VALIDATION$EMPTY_DATA)
     }
     
     # Check for minimum required rows
     if (nrow(data) < 10) {
-      return(list(
-        valid = FALSE,
-        message = "Dataset must have at least 10 rows",
-        code = "INSUFFICIENT_ROWS"
-      ))
+      throw_error("Dataset must have at least 10 rows", 
+                 ERROR_CODES$DATA_VALIDATION$INSUFFICIENT_ROWS)
     }
     
     # Check for duplicate column names
     if (any(duplicated(names(data)))) {
-      return(list(
-        valid = FALSE,
-        message = "Duplicate column names detected",
-        code = "DUPLICATE_COLS"
-      ))
+      throw_error("Duplicate column names detected", 
+                 ERROR_CODES$DATA_VALIDATION$INVALID_FORMAT)
     }
     
     # Check for excessive missing values
     missing_prop <- colMeans(is.na(data))
     if (any(missing_prop > 0.5)) {
       problem_cols <- names(which(missing_prop > 0.5))
-      return(list(
-        valid = FALSE,
-        message = sprintf("Columns with >50%% missing values: %s",
+      throw_error(sprintf("Columns with >50%% missing values: %s",
                          paste(problem_cols, collapse = ", ")),
-        code = "EXCESSIVE_MISSING"
-      ))
+                 ERROR_CODES$DATA_VALIDATION$INVALID_VALUES)
     }
     
-    # All checks passed
-    return(list(
-      valid = TRUE,
-      message = "Validation successful",
-      code = "VALID"
-    ))
+    list(valid = TRUE, message = "Validation successful")
     
   }, error = function(e) {
-    return(list(
-      valid = FALSE,
-      message = sprintf("Validation error: %s", e$message),
-      code = "VALIDATION_ERROR"
-    ))
+    log_error_enhanced(e, "data_validation")
+    list(valid = FALSE, message = e$message, code = e$code)
   })
 }
 
-#' Validate weighting parameters
-#' @param params List of parameters
-#' @param method Weighting method
+#' Validate computed weights
+#' @param weights Numeric vector of computed weights
+#' @param params List of weighting parameters
 #' @return List with validation results
-validate_parameters <- function(params, method) {
+validate_weights <- function(weights, params) {
   tryCatch({
-    # Common parameter validation
-    if (params$max_iterations <= 0) {
-      return(list(
-        valid = FALSE,
-        message = "Maximum iterations must be positive",
-        code = "INVALID_MAX_ITER"
-      ))
+    # Basic checks
+    if (!is.numeric(weights)) {
+      throw_error("Weights must be numeric", 
+                 ERROR_CODES$WEIGHT_COMPUTATION$INVALID_VALUES)
     }
     
-    if (params$convergence_threshold <= 0) {
-      return(list(
-        valid = FALSE,
-        message = "Convergence threshold must be positive",
-        code = "INVALID_THRESHOLD"
-      ))
-    }
-    
-    # Method-specific validation
-    switch(method,
-      "post_strat" = {
-        if (length(params$strata_vars) == 0) {
-          return(list(
-            valid = FALSE,
-            message = "No stratification variables selected",
-            code = "NO_STRATA_VARS"
-          ))
-        }
-      },
-      "raking" = {
-        if (length(params$margin_vars) == 0) {
-          return(list(
-            valid = FALSE,
-            message = "No margin variables selected",
-            code = "NO_MARGIN_VARS"
-          ))
-        }
-      },
-      "calibration" = {
-        if (length(params$calibration_vars) == 0) {
-          return(list(
-            valid = FALSE,
-            message = "No calibration variables selected",
-            code = "NO_CALIB_VARS"
-          ))
-        }
-        if (params$lower_bound >= params$upper_bound) {
-          return(list(
-            valid = FALSE,
-            message = "Lower bound must be less than upper bound",
-            code = "INVALID_BOUNDS"
-          ))
-        }
-      },
-      "ipw" = {
-        if (is.null(params$treatment_var)) {
-          return(list(
-            valid = FALSE,
-            message = "No treatment variable selected",
-            code = "NO_TREAT_VAR"
-          ))
-        }
-        if (length(params$covariates) == 0) {
-          return(list(
-            valid = FALSE,
-            message = "No covariates selected",
-            code = "NO_COVARIATES"
-          ))
-        }
-      }
+    # Statistical checks
+    weight_stats <- list(
+      mean = mean(weights),
+      sd = sd(weights),
+      min = min(weights),
+      max = max(weights),
+      cv = sd(weights) / mean(weights)
     )
     
-    # All checks passed
-    return(list(
-      valid = TRUE,
-      message = "Parameter validation successful",
-      code = "VALID"
-    ))
+    # Validation rules
+    if (any(is.na(weights))) {
+      throw_error("Missing values in weights", 
+                 ERROR_CODES$WEIGHT_COMPUTATION$INVALID_VALUES,
+                 weight_stats)
+    }
     
+    if (any(weights <= 0)) {
+      throw_error("Negative or zero weights detected", 
+                 ERROR_CODES$WEIGHT_COMPUTATION$NEGATIVE_WEIGHTS,
+                 weight_stats)
+    }
+    
+    if (weight_stats$cv > params$max_cv) {
+      throw_error("Weight variation exceeds threshold", 
+                 ERROR_CODES$WEIGHT_COMPUTATION$EXTREME_WEIGHTS,
+                 weight_stats)
+    }
+    
+    list(valid = TRUE,
+         message = "Weight validation successful",
+         stats = weight_stats)
+         
   }, error = function(e) {
-    return(list(
-      valid = FALSE,
-      message = sprintf("Parameter validation error: %s", e$message),
-      code = "PARAM_VALIDATION_ERROR"
-    ))
+    log_error_enhanced(e, "weight_validation")
+    list(valid = FALSE,
+         message = e$message,
+         code = e$code,
+         stats = e$details)
   })
 }
 
-#' Handle and log errors
-#' @param e Error object
+#' Enhanced error logging with levels
+#' @param error Error object or message
 #' @param context Error context
-log_error <- function(e, context = "") {
-  error_time <- Sys.time()
-  error_details <- list(
-    timestamp = error_time,
+#' @param level Logging level (DEBUG, INFO, WARN, ERROR)
+log_error_enhanced <- function(error, context = "", level = "ERROR") {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  
+  error_info <- list(
+    timestamp = timestamp,
+    level = level,
     context = context,
-    message = e$message,
-    call = deparse(e$call),
-    stack_trace = sys.calls()
+    message = if(is.character(error)) error else error$message,
+    code = if(is.character(error)) NA else error$code,
+    details = if(is.character(error)) NULL else error$details
   )
   
-  # Log error
-  log_error(sprintf("[%s] %s: %s",
-                    context,
-                    class(e)[1],
-                    e$message))
+  # Format message for logging
+  log_message <- sprintf("[%s] [%s] %s: %s", 
+                        timestamp,
+                        level,
+                        context,
+                        error_info$message)
   
-  # Return error details
-  return(error_details)
+  # Log based on level
+  switch(level,
+         "DEBUG" = log_debug(log_message),
+         "INFO"  = log_info(log_message),
+         "WARN"  = log_warn(log_message),
+         "ERROR" = log_error(log_message))
+  
+  error_info
+}
+
+#' Attempt to recover from weight computation errors
+#' @param error WeightComputationError object
+#' @param data Original dataset
+#' @param params Original parameters
+#' @return List with recovery results
+recover_weight_computation <- function(error, data, params) {
+  tryCatch({
+    recovery_action <- switch(error$code,
+      "WC001" = {
+        # Convergence failure recovery
+        new_params <- params
+        new_params$convergence_threshold <- params$convergence_threshold * 1.5
+        new_params$max_iterations <- params$max_iterations * 2
+        list(action = "retry", params = new_params)
+      },
+      "WC002" = {
+        # Negative weights recovery
+        new_params <- params
+        new_params$lower_bound <- 0.1
+        list(action = "retry", params = new_params)
+      },
+      "WC003" = {
+        # Extreme weights recovery
+        new_params <- params
+        new_params$trim_threshold <- 0.95
+        list(action = "trim", params = new_params)
+      },
+      list(action = "abort", message = "Unrecoverable error")
+    )
+    
+    log_error_enhanced(sprintf("Recovery attempt for %s: %s", 
+                             error$code, 
+                             recovery_action$action),
+                      "weight_recovery",
+                      "INFO")
+    
+    recovery_action
+    
+  }, error = function(e) {
+    log_error_enhanced(e, "recovery_attempt")
+    list(action = "abort", 
+         message = "Recovery attempt failed")
+  })
 }
 
 #' Custom error throwing function

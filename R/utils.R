@@ -180,3 +180,23 @@ setup_logging <- function(log_file) {
   log_threshold(INFO)
   log_appender(file_appender(log_file))
 }
+
+#' Fetch data from Crunch.io API
+#' @param endpoint API endpoint to fetch data from
+#' @param params List of query parameters
+#' @return Data from API
+fetch_crunch_data <- function(endpoint, params = list()) {
+  secrets <- load_secrets()
+  api_url <- secrets$crunch$api_url
+  api_key <- secrets$crunch$api_key
+  
+  url <- paste0(api_url, endpoint)
+  response <- httr::GET(url, httr::add_headers(Authorization = paste("Bearer", api_key)), query = params)
+  
+  if (response$status_code != 200) {
+    stop("Failed to fetch data from Crunch.io API")
+  }
+  
+  content <- httr::content(response, as = "parsed")
+  return(content)
+}

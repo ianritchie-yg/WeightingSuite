@@ -2,26 +2,87 @@
 
 /* Custom theme variables */
 :root {
-  --bg-color: #1a1a2e;
-  --text-color: #e94560;
-  --accent-color: #16213e;
+  --primary-blue: #004A7E;
+  --primary-red: #ED1C24;
+  --primary-gray: #666666;
+  --secondary-blue: #ADD8E6;
+  --secondary-red: #FFC0CB;
+  --secondary-gray: #CCCCCC;
+  --text-color: #333333;
+
+  /* Grapefruit Theme */
+  --grapefruit-light-60: #FF8080;
+  --grapefruit-light-80: #FF6756;
+  --grapefruit-core: #FF412C;
+  --grapefruit-dark-1: #E8281F;
+  --grapefruit-dark-2: #C20400;
+
+  /* Plum Theme */
+  --plum-light-60: #C57FFF;
+  --plum-light-80: #B254FF;
+  --plum-core: #9F29FF;
+  --plum-dark-1: #801DB8;
+  --plum-dark-2: #660AB8;
+
+  /* Blueberry Theme */
+  --blueberry-light-60: #B9CAF5;
+  --blueberry-light-80: #88B8F1;
+  --blueberry-core: #0684EE;
+  --blueberry-dark-1: #0051B9;
+  --blueberry-dark-2: #003CA8;
+
+  /* Avocado Theme */
+  --avocado-light-60: #83DFCB;
+  --avocado-light-80: #5AC8A8;
+  --avocado-core: #41CA4B;
+  --avocado-dark-1: #1B8B78;
+  --avocado-dark-2: #008B45;
+
+  /* Pomegranate Theme */
+  --pomegranate-light-60: #FF7BB3;
+  --pomegranate-light-80: #FF4B90;
+  --pomegranate-core: #FF2A80;
+  --pomegranate-dark-1: #CB0429;
+  --pomegranate-dark-2: #A50165;
+
+  /* ...existing fruit color definitions... */
 }
 
 /* Global styles */
 body {
-  font-family: 'Roboto', sans-serif;
-  line-height: 1.6;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-color);
+}
+
+h1, h2, h3 {
+  font-family: Arial, sans-serif;
+  color: var(--primary-blue);
+}
+
+h1 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: bold;
+}
+
+h2 {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--primary-gray);
 }
 
 /* Dashboard header */
 .main-header {
-  background-color: var(--accent-color) !important;
+  background-color: var(--primary-color) !important;
 }
 
 .main-header .logo {
-  background-color: var(--bg-color) !important;
-  color: var(--text-color) !important;
-  font-weight: 600;
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  font-weight: bold;
   transition: all 0.3s ease;
 }
 
@@ -31,15 +92,17 @@ body {
 
 /* Sidebar */
 .main-sidebar {
-  background-color: var(--bg-color) !important;
+  background-color: var(--dark-accent-1) !important;
 }
 
 .sidebar-menu > li > a {
-  color: var(--text-color) !important;
+  color: white !important;
+  padding: 20px;
 }
 
 .sidebar-menu > li.active > a {
-  background-color: var(--accent-color) !important;
+  background-color: var(--secondary-red) !important;
+  color: var(--primary-red) !important;
 }
 
 /* Content boxes */
@@ -54,32 +117,58 @@ body {
 
 /* Input controls */
 .form-control {
-  border-radius: 4px;
-  border: 1px solid #ddd;
+  background-color: white;
+  border: 1px solid var(--primary-gray);
+  padding: 10px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  border-radius: 0;
 }
 
 .form-control:focus {
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 0.2rem rgba(22, 33, 62, 0.25);
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 0.2rem rgba(0, 74, 126, 0.25);
+}
+
+label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-gray);
+  margin-bottom: 5px;
 }
 
 /* Buttons */
 .btn {
-  border-radius: 4px;
-  text-transform: uppercase;
-  font-weight: 500;
-  letter-spacing: 0.5px;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-family: Arial, sans-serif;
+  text-transform: none;
+  font-weight: normal;
+  letter-spacing: normal;
   transition: all 0.3s ease;
 }
 
 .btn-primary {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
+  background-color: var(--primary-blue);
+  border-color: var(--primary-blue);
+  color: white;
 }
 
 .btn-primary:hover {
-  background-color: var(--text-color);
-  border-color: var(--text-color);
+  background-color: var(--secondary-blue);
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.btn-secondary {
+  background-color: white;
+  border: 1px solid var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+.btn-secondary:hover {
+  background-color: var(--secondary-blue);
+  color: var(--primary-blue);
 }
 
 /* Tables */
@@ -89,7 +178,7 @@ body {
 }
 
 .table thead th {
-  background-color: var(--accent-color);
+  background-color: var(--primary-blue);
   color: white;
 }
 
@@ -121,3 +210,80 @@ body {
     margin-bottom: 0.5rem;
   }
 }
+
+/* Theme Classes */
+.fruit-theme {
+  transition: all 0.3s ease;
+}
+
+.grapefruit-theme {
+  --primary-color: var(--grapefruit-core);
+  --light-accent-1: var(--grapefruit-light-60);
+  --light-accent-2: var(--grapefruit-light-80);
+  --dark-accent-1: var(--grapefruit-dark-1);
+  --dark-accent-2: var(--grapefruit-dark-2);
+}
+
+.plum-theme {
+  --primary-color: var(--plum-core);
+  --light-accent-1: var(--plum-light-60);
+  --light-accent-2: var(--plum-light-80);
+  --dark-accent-1: var(--plum-dark-1);
+  --dark-accent-2: var(--plum-dark-2);
+}
+
+.blueberry-theme {
+  --primary-color: var(--blueberry-core);
+  --light-accent-1: var(--blueberry-light-60);
+  --light-accent-2: var(--blueberry-light-80);
+  --dark-accent-1: var(--blueberry-dark-1);
+  --dark-accent-2: var(--blueberry-dark-2);
+}
+
+.avocado-theme {
+  --primary-color: var(--avocado-core);
+  --light-accent-1: var(--avocado-light-60);
+  --light-accent-2: var(--avocado-light-80);
+  --dark-accent-1: var(--avocado-dark-1);
+  --dark-accent-2: var(--avocado-dark-2);
+}
+
+.pomegranate-theme {
+  --primary-color: var(--pomegranate-core);
+  --light-accent-1: var(--pomegranate-light-60);
+  --light-accent-2: var(--pomegranate-light-80);
+  --dark-accent-1: var(--pomegranate-dark-1);
+  --dark-accent-2: var(--pomegranate-dark-2);
+}
+
+/* Theme Switcher Styles */
+.theme-switcher {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: var(--light-accent-1);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.theme-option {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin: 5px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.theme-option.active {
+  border-color: white;
+  box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.theme-option[data-theme="grapefruit"] { background-color: #FF412C; }
+.theme-option[data-theme="plum"] { background-color: #9F29FF; }
+.theme-option[data-theme="blueberry"] { background-color: #0684EE; }
+.theme-option[data-theme="avocado"] { background-color: #41CA4B; }
+.theme-option[data-theme="pomegranate"] { background-color: #FF2A80; }

@@ -176,8 +176,7 @@ generate_report <- function(data, weights, diagnostics,
 #' @return Path to generated report
 generate_weight_report <- function(data, weights, diagnostics, output_format = "html") {
   # Create temporary Rmd file
-  rmd_content <- '
----
+  rmd_content <- '---
 title: "Survey Weighting Report"
 date: "`r format(Sys.time(), "%Y-%m-%d %H:%M:%S")`"
 output: 
@@ -185,3 +184,46 @@ output:
     theme: cosmo
     toc: true
 ---
+
+## Summary Statistics
+
+```{r summary, echo=FALSE}
+params$summary_stats
+```
+
+## Weight Distribution
+
+```{r weight_dist, echo=FALSE}
+params$plots$weight_dist
+```
+
+## Convergence Analysis
+
+```{r convergence, echo=FALSE}
+params$plots$convergence
+```
+'
+
+  # Create temporary file and render
+  tmp_rmd <- tempfile(fileext = ".Rmd")
+  writeLines(rmd_content, tmp_rmd)
+  
+  # Set output file
+  output_file <- paste0("weighting_report.", output_format)
+  
+  # Render report
+  rmarkdown::render(
+    input = tmp_rmd,
+    output_file = output_file,
+    params = list(
+      summary_stats = generate_summary_statistics(weights, diagnostics),
+      plots = list(
+        weight_dist = create_weight_distribution_plot(weights),
+        convergence = create_convergence_plot(diagnostics$convergence)
+      )
+    ),
+    quiet = TRUE
+  )
+  
+  return(output_file)
+}

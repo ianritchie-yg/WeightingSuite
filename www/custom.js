@@ -46,14 +46,14 @@ $(document).ready(function() {
       <div class="modal fade" id="errorModal" tabindex="-1" role="dialog">
         <div class="modal-dialog" role="document">
           <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header" style="background-color: #004A7E; color: white;">
               <h5 class="modal-title">Error</h5>
-              <button type="button" class="close" data-dismiss="modal">
+              <button type="button" class="close" data-dismiss="modal" style="color: white;">
                 <span>&times;</span>
               </button>
             </div>
             <div class="modal-body">
-              <p>${message}</p>
+              <p style="color: #333333;">${message}</p>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -79,8 +79,15 @@ $(document).ready(function() {
       'info': 'info-circle'
     }[type];
     
+    let colors = {
+      'success': '#004A7E',
+      'error': '#ED1C24',
+      'warning': '#666666',
+      'info': '#004A7E'
+    };
+    
     let notification = `
-      <div class="custom-notification ${type}">
+      <div class="custom-notification ${type}" style="background-color: ${colors[type]}; color: white;">
         <i class="fas fa-${icon}"></i>
         <span>${message}</span>
       </div>
@@ -123,4 +130,46 @@ $(document).ready(function() {
       input.next('.help-block').text('');
     }
   });
+
+  // Theme switching functionality
+  window.switchTheme = function(themeName) {
+    // Remove all theme classes
+    document.body.classList.remove(
+      'grapefruit-theme',
+      'plum-theme',
+      'blueberry-theme',
+      'avocado-theme',
+      'pomegranate-theme'
+    );
+    
+    // Add new theme class
+    document.body.classList.add('fruit-theme', `${themeName}-theme`);
+    
+    // Update active state of theme options
+    $('.theme-option').removeClass('active');
+    $(`.theme-option[data-theme="${themeName}"]`).addClass('active');
+    
+    // Store theme preference
+    localStorage.setItem('preferred-theme', themeName);
+    
+    // Notify Shiny of theme change
+    Shiny.setInputValue('theme_changed', themeName);
+  };
+
+  // Initialize theme from stored preference
+  const storedTheme = localStorage.getItem('preferred-theme') || 'grapefruit';
+  window.switchTheme(storedTheme);
 });
+
+function switchTheme(themeName) {
+  // Remove active class from all buttons
+  document.querySelectorAll('.theme-option').forEach(button => {
+    button.classList.remove('active');
+  });
+  
+  // Add active class to selected theme button
+  document.querySelector(`[data-theme="${themeName}"]`).classList.add('active');
+  
+  // Notify Shiny of theme change
+  Shiny.setInputValue('theme_changed', themeName);
+}
