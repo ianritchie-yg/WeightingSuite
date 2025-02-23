@@ -25,6 +25,22 @@ ERROR_CODES <- list(
     WRITE_ERROR = "FO002",
     INVALID_PATH = "FO003",
     PERMISSION_DENIED = "FO004"
+  ),
+  
+  # UI Validation Errors
+  UI_VALIDATION = list(
+    INVALID_INPUT = "UI001",
+    MISSING_REQUIRED = "UI002",
+    INVALID_RANGE = "UI003",
+    INCOMPATIBLE_PARAMS = "UI004"
+  ),
+  
+  # Parameter Validation Errors
+  PARAMETER_VALIDATION = list(
+    MISSING_REQUIRED = "PV001",
+    INVALID_TYPE = "PV002",
+    INVALID_RANGE = "PV003",
+    INCOMPATIBLE_COMBO = "PV004"
   )
 )
 
@@ -85,6 +101,25 @@ WeightComputationError <- R6::R6Class("WeightComputationError",
       self$stats <- stats
     }
   )
+)
+
+ParameterValidationError <- R6::R6Class("ParameterValidationError",
+    public = list(
+        message = NULL,
+        code = NULL,
+        param_name = NULL,
+        expected = NULL,
+        received = NULL,
+        
+        initialize = function(message, code = "PARAM_ERROR", param_name = NULL, 
+                            expected = NULL, received = NULL) {
+            self$message <- message
+            self$code <- code
+            self$param_name <- param_name
+            self$expected <- expected
+            self$received <- received
+        }
+    )
 )
 
 # Enhanced Validation Functions
@@ -165,6 +200,16 @@ validate_weights <- function(weights, params) {
       throw_error("Weight variation exceeds threshold", 
                  ERROR_CODES$WEIGHT_COMPUTATION$EXTREME_WEIGHTS,
                  weight_stats)
+    }
+    
+    # Add method-specific validation
+    if (!is.null(params$method)) {
+        switch(params$method,
+            "post_stratification" = validate_post_strat_weights(weights, params),
+            "ipw" = validate_ipw_weights(weights, params),
+            "calibration" = validate_calibration_weights(weights, params),
+            "rake" = validate_rake_weights(weights, params)
+        )
     }
     
     list(valid = TRUE,
@@ -273,4 +318,68 @@ throw_error <- function(message, code = NULL, details = NULL) {
     class = c("survey_weight_error", "error", "condition")
   )
   stop(error)
+}
+
+# Add parameter validation function
+validate_weighting_params <- function(method, params) {
+    tryCatch({
+        # Get required parameters for method
+        required_params <- switch(method,
+            "post_stratification" = post_strat_params$required,
+            "ipw" = ipw_params$required,
+            "calibration" = calibration_params$required,
+            "rake" = rake_params$required,
+            throw_error("Invalid weighting method", 
+                       ERROR_CODES$PARAMETER_VALIDATION$INVALID_TYPE)
+        )
+        
+        # Check for missing required parameters
+        missing_params <- setdiff(required_params, names(params))
+        if (length(missing_params) > 0) {
+            throw_error(
+                sprintf("Missing required parameters: %s", 
+                        paste(missing_params, collapse = ", ")),
+                ERROR_CODES$PARAMETER_VALIDATION$MISSING_REQUIRED,
+                list(method = method, missing = missing_params)
+            )
+        }
+        
+        # Validate parameter types and ranges
+        validate_param_types(method, params)
+        validate_param_ranges(method, params)
+        
+        list(valid = TRUE, message = "Parameter validation successful")
+        
+    }, error = function(e) {
+        log_error_enhanced(e, "parameter_validation")
+        list(valid = FALSE, message = e$message, code = e$code)
+    })
+}
+
+# Add helper functions for parameter validation
+validate_param_types <- function(method, params) {
+    # Implementation depends on method-specific requirements
+    # Add type checking logic here
+}
+
+validate_param_ranges <- function(method, params) {
+    # Implementation depends on method-specific requirements
+    # Add range validation logic here
+}
+
+# Add method-specific weight validation functions
+validate_post_strat_weights <- function(weights, params) {
+    # Implementation for post-stratification weights
+}
+
+validate_ipw_weights <- function(weights, params) {
+    # Implementation for IPW weights
+}
+
+validate_calibration_weights <- function(weights, params) {
+    # Implementation for calibration weights
+}
+
+validate_rake_weights <- function(weights, params) {
+    # Implementation for RAKE weights
 }

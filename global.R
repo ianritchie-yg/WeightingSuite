@@ -5,36 +5,37 @@ library(pacman)
 
 packages <- c(
   # UI Framework and Core Functionality
-  "shiny",         
-  "shinydashboard", 
-  "shinydashboardPlus", 
-  "shinyjs",       
-  "shinyWidgets",  
-  "waiter",        
+  "shiny",
+  "shinydashboard",
+  "shinydashboardPlus",
+  "shinyjs",
+  "shinyWidgets",
+  "waiter",
   
   # Data Display and Visualization
-  "DT",           
-  "plotly",       
+  "DT",
+  "plotly",
+  "ggplot2",
   
   # Data Manipulation and Analysis
-  "tidyverse",    
+  "tidyverse",
   
   # File Input/Output
-  "haven",        
-  "openxlsx",     
-  "readxl",       
-  "writexl",      
+  "haven",
+  "openxlsx",
+  "readxl",
+  "writexl",
   
   # Documentation and Logging
-  "rmarkdown",    
-  "logger",       
-  "yaml",         
+  "rmarkdown",
+  "logger",
+  "yaml",
   
   # Additional Utilities
-  "scales",       
-  "stringr",      
-  "digest",       
-  "jsonlite",     
+  "scales",
+  "stringr",
+  "digest",
+  "jsonlite",
   "shinyvalidate"
 )
 

@@ -143,7 +143,7 @@ $(document).ready(function() {
     );
     
     // Add new theme class
-    document.body.classList.add('fruit-theme', `${themeName}-theme`);
+    document.body.classList.add(`${themeName}-theme`);
     
     // Update active state of theme options
     $('.theme-option').removeClass('active');
@@ -162,12 +162,22 @@ $(document).ready(function() {
 });
 
 function switchTheme(themeName) {
-  // Remove active class from all buttons
+  // Remove all theme classes
+  document.body.classList.remove(
+    'grapefruit-theme',
+    'plum-theme',
+    'blueberry-theme',
+    'avocado-theme',
+    'pomegranate-theme'
+  );
+  
+  // Add new theme class
+  document.body.classList.add(`${themeName}-theme`);
+  
+  // Update active state of theme buttons
   document.querySelectorAll('.theme-option').forEach(button => {
     button.classList.remove('active');
   });
-  
-  // Add active class to selected theme button
   document.querySelector(`[data-theme="${themeName}"]`).classList.add('active');
   
   // Notify Shiny of theme change
