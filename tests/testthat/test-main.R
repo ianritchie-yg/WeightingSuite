@@ -54,8 +54,9 @@ test_that("parameter validation works", {
     method = "invalid_method"
   )
   
-  expect_true(validate_parameters(valid_params, "post_strat")$valid)
-  expect_false(validate_parameters(invalid_params, "post_strat")$valid)
+  # Fixed function name: validate_params instead of validate_parameters
+  expect_true(validate_params(valid_params, "post_strat")$valid)
+  expect_false(validate_params(invalid_params, "post_strat")$valid)
 })
 
 test_that("visualization functions work", {

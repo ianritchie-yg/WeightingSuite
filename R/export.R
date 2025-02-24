@@ -12,7 +12,7 @@
 #' @param filename Output filename
 #' @return Invisible TRUE if successful
 export_results <- function(data, weights, diagnostics, method, params, 
-                          format = "CSV", include_diagnostics = TRUE, filename) {
+                           format = "CSV", include_diagnostics = TRUE, filename) {
     
     result_data <- data
     result_data$weight <- weights
@@ -21,14 +21,14 @@ export_results <- function(data, weights, diagnostics, method, params,
     result_data <- add_method_specific_columns(result_data, method, params)
     
     if (include_diagnostics) {
-        diag_cols <- generate_diagnostic_columns(diagnostics)
+        diag_cols <- add_diagnostic_columns(data.frame(), diagnostics)
         result_data <- cbind(result_data, diag_cols)
     }
     
     switch(format,
-        "CSV" = write.csv(result_data, filename, row.names = FALSE),
-        "RDS" = saveRDS(result_data, filename),
-        "STATA" = haven::write_dta(result_data, filename)
+           "CSV" = write.csv(result_data, filename, row.names = FALSE),
+           "RDS" = saveRDS(result_data, filename),
+           "STATA" = haven::write_dta(result_data, filename)
     )
     
     filename
@@ -153,7 +153,7 @@ export_to_spss <- function(data, filename) {
 #' @param output_file Output filename
 #' @param template Template file
 generate_report <- function(data, weights, diagnostics,
-                          output_file, template = "report_template.Rmd") {
+                            output_file, template = "report_template.Rmd") {
   # Prepare report parameters
   params <- list(
     date = Sys.Date(),
@@ -185,36 +185,35 @@ generate_report <- function(data, weights, diagnostics,
 #' @param output_format Output format ("pdf" or "html")
 #' @return Path to generated report
 generate_weight_report <- function(data, weights, diagnostics, method, params,
-                                 output_format = "html") {
-    report_template <- create_report_template(method, params)
-    
-    # Generate plots
-    weight_dist_plot <- create_weight_distribution_plot(weights)
-    conv_plot <- create_convergence_plot(diagnostics$convergence)
-    method_plots <- generate_method_specific_plots(method, weights, params)
-    
-    # Calculate metrics
-    quality_metrics <- calculate_quality_metrics(weights, diagnostics, method)
-    
-    # Render report
-    temp_rmd <- tempfile(fileext = ".Rmd")
-    writeLines(report_template, temp_rmd)
-    
-    rmarkdown::render(temp_rmd,
-        output_format = paste0("html_document"),
-        output_file = file.path(tempdir(), "weight_report.html"),
-        params = list(
-            data = data,
-            weights = weights,
-            diagnostics = diagnostics,
-            plots = list(
-                weight_dist = weight_dist_plot,
-                convergence = conv_plot,
-                method_specific = method_plots
-            ),
-            metrics = quality_metrics
-        )
-    )
+                                   output_format = "html") {
+  report_template <- create_report_template(method, params)
+  
+  # Generate plots
+  weight_dist_plot <- create_weight_distribution_plot(weights)
+  conv_plot <- create_convergence_plot(diagnostics$convergence)
+  method_plots <- generate_method_specific_plots(method, weights, params)
+  
+  # Calculate metrics
+  quality_metrics <- calculate_quality_metrics(weights, diagnostics, method)
+  
+  # Render report
+  temp_rmd <- tempfile(fileext = ".Rmd")
+  writeLines(report_template, temp_rmd)
+  
+  rmarkdown::render(temp_rmd,
+                    output_format = paste0("html_document"),
+                    output_file = file.path(tempdir(), "weight_report.html"),
+                    params = list(
+                      data = data,
+                      weights = weights,
+                      diagnostics = diagnostics,
+                      plots = list(
+                        weight_dist = weight_dist_plot,
+                        convergence = conv_plot,
+                        method_specific = method_plots
+                      ),
+                      metrics = quality_metrics
+                    ))
 }
 
 #' Create method-specific visualizations
@@ -323,7 +322,7 @@ calculate_quality_metrics <- function(weights, diagnostics, method) {
 #' @param params Method parameters
 #' @param output_format Output format
 generate_enhanced_report <- function(data, weights, diagnostics, 
-                                   method, params, output_format = "html") {
+                                     method, params, output_format = "html") {
   # Generate visualizations and statistics
   plots <- create_method_plots(method, data, weights, diagnostics)
   summary_stats <- generate_method_summary(method, weights, diagnostics)

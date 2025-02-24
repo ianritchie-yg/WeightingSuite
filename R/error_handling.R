@@ -6,6 +6,7 @@ ERROR_CODES <- list(
   # Validation Errors
   DATA_VALIDATION = list(
     EMPTY_DATA = "ED001",
+    INSUFFICIENT_ROWS = "ED005",  # Added error code for insufficient rows
     INVALID_FORMAT = "ED002",
     MISSING_COLUMNS = "ED003",
     INVALID_VALUES = "ED004"
@@ -136,13 +137,13 @@ validate_data <- function(data) {
     # Check for minimum required rows
     if (nrow(data) < 10) {
       throw_error("Dataset must have at least 10 rows", 
-                 ERROR_CODES$DATA_VALIDATION$INSUFFICIENT_ROWS)
+                  ERROR_CODES$DATA_VALIDATION$INSUFFICIENT_ROWS)
     }
     
     # Check for duplicate column names
     if (any(duplicated(names(data)))) {
       throw_error("Duplicate column names detected", 
-                 ERROR_CODES$DATA_VALIDATION$INVALID_FORMAT)
+                  ERROR_CODES$DATA_VALIDATION$INVALID_FORMAT)
     }
     
     # Check for excessive missing values
@@ -150,8 +151,8 @@ validate_data <- function(data) {
     if (any(missing_prop > 0.5)) {
       problem_cols <- names(which(missing_prop > 0.5))
       throw_error(sprintf("Columns with >50%% missing values: %s",
-                         paste(problem_cols, collapse = ", ")),
-                 ERROR_CODES$DATA_VALIDATION$INVALID_VALUES)
+                          paste(problem_cols, collapse = ", ")),
+                  ERROR_CODES$DATA_VALIDATION$INVALID_VALUES)
     }
     
     list(valid = TRUE, message = "Validation successful")
@@ -171,7 +172,7 @@ validate_weights <- function(weights, params) {
     # Basic checks
     if (!is.numeric(weights)) {
       throw_error("Weights must be numeric", 
-                 ERROR_CODES$WEIGHT_COMPUTATION$INVALID_VALUES)
+                  ERROR_CODES$WEIGHT_COMPUTATION$INVALID_VALUES)
     }
     
     # Statistical checks
@@ -186,30 +187,30 @@ validate_weights <- function(weights, params) {
     # Validation rules
     if (any(is.na(weights))) {
       throw_error("Missing values in weights", 
-                 ERROR_CODES$WEIGHT_COMPUTATION$INVALID_VALUES,
-                 weight_stats)
+                  ERROR_CODES$WEIGHT_COMPUTATION$INVALID_VALUES,
+                  weight_stats)
     }
     
     if (any(weights <= 0)) {
       throw_error("Negative or zero weights detected", 
-                 ERROR_CODES$WEIGHT_COMPUTATION$NEGATIVE_WEIGHTS,
-                 weight_stats)
+                  ERROR_CODES$WEIGHT_COMPUTATION$NEGATIVE_WEIGHTS,
+                  weight_stats)
     }
     
     if (weight_stats$cv > params$max_cv) {
       throw_error("Weight variation exceeds threshold", 
-                 ERROR_CODES$WEIGHT_COMPUTATION$EXTREME_WEIGHTS,
-                 weight_stats)
+                  ERROR_CODES$WEIGHT_COMPUTATION$EXTREME_WEIGHTS,
+                  weight_stats)
     }
     
     # Add method-specific validation
     if (!is.null(params$method)) {
-        switch(params$method,
-            "post_stratification" = validate_post_strat_weights(weights, params),
-            "ipw" = validate_ipw_weights(weights, params),
-            "calibration" = validate_calibration_weights(weights, params),
-            "rake" = validate_rake_weights(weights, params)
-        )
+      switch(params$method,
+             "post_stratification" = validate_post_strat_weights(weights, params),
+             "ipw" = validate_ipw_weights(weights, params),
+             "calibration" = validate_calibration_weights(weights, params),
+             "rake" = validate_rake_weights(weights, params)
+      )
     }
     
     list(valid = TRUE,
@@ -243,10 +244,10 @@ log_error_enhanced <- function(error, context = "", level = "ERROR") {
   
   # Format message for logging
   log_message <- sprintf("[%s] [%s] %s: %s", 
-                        timestamp,
-                        level,
-                        context,
-                        error_info$message)
+                         timestamp,
+                         level,
+                         context,
+                         error_info$message)
   
   # Log based on level
   switch(level,
@@ -289,10 +290,10 @@ recover_weight_computation <- function(error, data, params) {
     )
     
     log_error_enhanced(sprintf("Recovery attempt for %s: %s", 
-                             error$code, 
-                             recovery_action$action),
-                      "weight_recovery",
-                      "INFO")
+                               error$code, 
+                               recovery_action$action),
+                        "weight_recovery",
+                        "INFO")
     
     recovery_action
     
@@ -322,64 +323,135 @@ throw_error <- function(message, code = NULL, details = NULL) {
 
 # Add parameter validation function
 validate_weighting_params <- function(method, params) {
-    tryCatch({
-        # Get required parameters for method
-        required_params <- switch(method,
-            "post_stratification" = post_strat_params$required,
-            "ipw" = ipw_params$required,
-            "calibration" = calibration_params$required,
-            "rake" = rake_params$required,
-            throw_error("Invalid weighting method", 
-                       ERROR_CODES$PARAMETER_VALIDATION$INVALID_TYPE)
-        )
-        
-        # Check for missing required parameters
-        missing_params <- setdiff(required_params, names(params))
-        if (length(missing_params) > 0) {
-            throw_error(
-                sprintf("Missing required parameters: %s", 
-                        paste(missing_params, collapse = ", ")),
-                ERROR_CODES$PARAMETER_VALIDATION$MISSING_REQUIRED,
-                list(method = method, missing = missing_params)
-            )
-        }
-        
-        # Validate parameter types and ranges
-        validate_param_types(method, params)
-        validate_param_ranges(method, params)
-        
-        list(valid = TRUE, message = "Parameter validation successful")
-        
-    }, error = function(e) {
-        log_error_enhanced(e, "parameter_validation")
-        list(valid = FALSE, message = e$message, code = e$code)
-    })
+  tryCatch({
+    # Get required parameters for method
+    required_params <- switch(method,
+                              "post_stratification" = post_strat_params$required,
+                              "ipw" = ipw_params$required,
+                              "calibration" = calibration_params$required,
+                              "rake" = rake_params$required,
+                              throw_error("Invalid weighting method", 
+                                          ERROR_CODES$PARAMETER_VALIDATION$INVALID_TYPE)
+    )
+    
+    # Check for missing required parameters
+    missing_params <- setdiff(required_params, names(params))
+    if (length(missing_params) > 0) {
+      throw_error(
+        sprintf("Missing required parameters: %s", 
+                paste(missing_params, collapse = ", ")),
+        ERROR_CODES$PARAMETER_VALIDATION$MISSING_REQUIRED,
+        list(method = method, missing = missing_params)
+      )
+    }
+    
+    # Validate parameter types and ranges
+    validate_param_types(method, params)
+    validate_param_ranges(method, params)
+    
+    list(valid = TRUE, message = "Parameter validation successful")
+    
+  }, error = function(e) {
+    log_error_enhanced(e, "parameter_validation")
+    list(valid = FALSE, message = e$message, code = e$code)
+  })
 }
 
 # Add helper functions for parameter validation
 validate_param_types <- function(method, params) {
-    # Implementation depends on method-specific requirements
-    # Add type checking logic here
+  # Implementation depends on method-specific requirements
+  # Add type checking logic here
 }
 
 validate_param_ranges <- function(method, params) {
-    # Implementation depends on method-specific requirements
-    # Add range validation logic here
+  # Implementation depends on method-specific requirements
+  # Add range validation logic here
 }
 
 # Add method-specific weight validation functions
 validate_post_strat_weights <- function(weights, params) {
-    # Implementation for post-stratification weights
+  # Implementation for post-stratification weights
 }
 
 validate_ipw_weights <- function(weights, params) {
-    # Implementation for IPW weights
+  # Implementation for IPW weights
 }
 
 validate_calibration_weights <- function(weights, params) {
-    # Implementation for calibration weights
+  # Implementation for calibration weights
 }
 
 validate_rake_weights <- function(weights, params) {
-    # Implementation for RAKE weights
+  # Implementation for RAKE weights
+}
+
+#' Enhanced Error Logging
+#'
+#' @param e Error object
+#' @param context String describing where the error occurred
+#' @return NULL
+#' @export
+log_error_enhanced <- function(e, context) {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  error_msg <- sprintf("[%s] %s: %s\n%s",
+                      timestamp, context, e$message,
+                      paste(capture.output(print(e)), collapse = "\n"))
+  
+  # Write to log file
+  log_file <- file.path("logs", format(Sys.Date(), "error_%Y%m%d.log"))
+  cat(error_msg, file = log_file, append = TRUE)
+  
+  # Print to console in development
+  if (Sys.getenv("R_ENV") == "development") {
+    message(error_msg)
+  }
+}
+
+#' Info Level Logging
+#'
+#' @param message String message to log
+#' @return NULL
+#' @export
+log_info <- function(message) {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  log_msg <- sprintf("[%s] INFO: %s", timestamp, message)
+  
+  # Write to log file
+  log_file <- file.path("logs", format(Sys.Date(), "info_%Y%m%d.log"))
+  cat(log_msg, "\n", file = log_file, append = TRUE)
+  
+  # Print to console in development
+  if (Sys.getenv("R_ENV") == "development") {
+    message(log_msg)
+  }
+}
+
+#' Recover Weight Computation
+#'
+#' @param e Error object
+#' @param data Data frame
+#' @param input Shiny input object
+#' @return List with recovery status and message
+#' @export
+recover_weight_computation <- function(e, data, input) {
+  log_error_enhanced(e, "Weight computation failure")
+  
+  # Attempt basic recovery
+  tryCatch({
+    # Create simple equal weights as fallback
+    n <- nrow(data)
+    recovery_weights <- rep(1/n, n)
+    
+    list(
+      status = "recovered",
+      weights = recovery_weights,
+      message = "Recovered with equal weights"
+    )
+  }, error = function(e2) {
+    list(
+      status = "failed",
+      weights = NULL,
+      message = "Recovery failed"
+    )
+  })
 }

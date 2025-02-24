@@ -1,4 +1,3 @@
-
 #' Validate target proportions
 #' @param var Variable name
 #' @param targets Vector of target proportions
@@ -10,6 +9,13 @@ validate_targets <- function(var, targets, levels) {
   tryCatch({
     targets <- as.numeric(targets)
     
+    # Check for non-numeric values resulting in NA
+    if (any(is.na(targets))) {
+      result$valid <- FALSE
+      result$message <- sprintf("Non-numeric target value(s) provided for %s", var)
+      return(result)
+    }
+    
     # Check number of targets matches levels
     if (length(targets) != length(levels)) {
       result$valid <- FALSE
@@ -20,7 +26,7 @@ validate_targets <- function(var, targets, levels) {
       return(result)
     }
     
-    # Check sum to 1
+    # Check sum to 1 (within a tolerance)
     if (abs(sum(targets) - 1) > 0.01) {
       result$valid <- FALSE
       result$message <- sprintf(
@@ -30,7 +36,7 @@ validate_targets <- function(var, targets, levels) {
       return(result)
     }
     
-    # Check range
+    # Check that all targets are within the range [0, 1]
     if (any(targets < 0) || any(targets > 1)) {
       result$valid <- FALSE
       result$message <- sprintf(

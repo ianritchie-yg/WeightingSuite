@@ -46,25 +46,20 @@ load_data <- function(file_path, file_type, header = TRUE, encoding = "UTF-8") {
   })
 }
 
-#' Clean and prepare dataset
-#' @param data Input dataset
-#' @return Cleaned dataset
+#' Clean and validate dataset
+#' @param data Input dataframe
+#' @return Cleaned dataframe
 clean_dataset <- function(data) {
   # Remove completely empty rows and columns
-  data <- data[rowSums(is.na(data)) != ncol(data), ]
-  data <- data[, colSums(is.na(data)) != nrow(data)]
-  # Convert character columns to factors where appropriate
-  char_cols <- sapply(data, is.character)
-  unique_vals <- sapply(data[char_cols], function(x) length(unique(x)))
-  factor_cols <- names(unique_vals[unique_vals < nrow(data) * 0.5])
-  data[factor_cols] <- lapply(data[factor_cols], factor)
-
-  # Handle date columns
-  date_cols <- identify_date_columns(data)
-  for (col in date_cols) {
-    data[[col]] <- as.Date(data[[col]])
+  data <- data[rowSums(!is.na(data)) > 0, colSums(!is.na(data)) > 0]
+  
+  # Convert character columns containing only numbers to numeric
+  for(col in names(data)) {
+    if(is.character(data[[col]]) && all(grepl("^\\s*-?\\d*\\.?\\d+\\s*$", na.omit(data[[col]])))) {
+      data[[col]] <- as.numeric(data[[col]])
+    }
   }
-
+  
   return(data)
 }
 
@@ -93,17 +88,15 @@ identify_date_columns <- function(data) {
   return(date_cols)
 }
 
-#' Generate summary statistics for dataset
-#' @param data Input dataset
+#' Generate summary statistics for a dataset
+#' @param data Input dataframe
 #' @return List of summary statistics
 generate_data_summary <- function(data) {
   list(
-    n_rows = nrow(data),
-    n_cols = ncol(data),
-    col_types = sapply(data, class),
-    missing_summary = colSums(is.na(data)),
-    numeric_summary = lapply(data[sapply(data, is.numeric)], summary),
-    factor_summary = lapply(data[sapply(data, is.factor)], table)
+    dimensions = dim(data),
+    types = sapply(data, class),
+    missing = colSums(is.na(data)),
+    summary = summary(data)
   )
 }
 
@@ -316,7 +309,8 @@ check_parameter_compatibility <- function(params, method, data) {
         check_cols_exist(data, c(params$treatment_var, params$covariates))
       },
       "Calibration" = {
-        check_cols_exist(data, params$target_vars)
+        # Bug fixed: use 'calibration_vars' instead of incorrect 'target_vars'
+        check_cols_exist(data, params$calibration_vars)
       },
       "RAKE" = {
         check_cols_exist(data, params$margin_vars)
@@ -338,14 +332,123 @@ check_cols_exist <- function(data, cols) {
   return(TRUE)
 }
 
+#' Ensure required directories exist
+#' @return Invisible TRUE
 ensure_files_exist <- function() {
-  dirs <- c("www", "logs", "data")
-  sapply(dirs, dir.create, showWarnings = FALSE)
+  dirs <- c("data", "logs", "output", "temp", "www", "R")
+  invisible(lapply(dirs, dir.create, showWarnings = FALSE, recursive = TRUE))
+  TRUE
+}
 
-  if (!file.exists("config.yml")) {
-    writeLines(
-      "default:\n  max_file_size: 100\n  theme: 'light'",
-      "config.yml"
-    )
+#' Null coalesce operator
+#' @param x First value
+#' @param y Default value
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+#' Clean up session resources
+#' @param state Reactive values object containing session state
+#' @return Invisible NULL
+cleanup_session <- function(state) {
+  tryCatch({
+    # Clean up temporary files
+    if (!is.null(getwd())) {
+      temp_files <- list.files("temp", full.names = TRUE)
+      unlink(temp_files)
+    }
+    
+    # Clear reactive values
+    if (!is.null(state)) {
+      state$data <- NULL
+      state$weights <- NULL
+      state$diagnostics <- NULL
+      state$computation_status <- "idle"
+      state$data_summary <- NULL
+    }
+    
+  }, error = function(e) {
+    warning("Error in cleanup: ", e$message)
+  })
+  
+  invisible(NULL)
+}
+
+#' Ensure Required Files and Directories Exist
+#'
+#' @return NULL
+#' @export
+ensure_files_exist <- function() {
+  dirs <- c("www", "logs", "data", "R")
+  sapply(dirs, dir.create, showWarnings = FALSE)
+  
+  # Create minimal CSS if missing
+  if (!file.exists("www/styles.css")) {
+    css_content <- "
+    .fruit-theme { background-color: #ffffff; }
+    .grapefruit-theme { background-color: #ff6b6b; }
+    .plum-theme { background-color: #a06cd5; }
+    .blueberry-theme { background-color: #4a90e2; }
+    .avocado-theme { background-color: #7ed321; }
+    .pomegranate-theme { background-color: #d0021b; }
+    "
+    writeLines(css_content, "www/styles.css")
   }
+  
+  # Create minimal JS if missing
+  if (!file.exists("www/custom.js")) {
+    js_content <- "
+    $(document).ready(function() {
+      // Theme switching logic
+      $('.theme-switcher select').change(function() {
+        var theme = $(this).val();
+        $('#main-content').attr('class', 'fruit-theme ' + theme + '-theme');
+      });
+    });
+    "
+    writeLines(js_content, "www/custom.js")
+  }
+  
+  # Create config if missing
+  if (!file.exists("config.yml")) {
+    config_content <- "
+    app:
+      name: 'Survey Weighting Suite'
+      version: '2.14.0'
+    settings:
+      max_upload_size: 104857600  # 100MB
+      max_iterations: 100
+      default_convergence_threshold: 0.001
+    "
+    writeLines(config_content, "config.yml")
+  }
+}
+
+#' Source Multiple Files with Error Handling
+#'
+#' @param files Character vector of file paths to source
+#' @return NULL
+#' @export
+source_files <- function(files) {
+  for (file in files) {
+    tryCatch({
+      source(file, local = TRUE)
+    }, error = function(e) {
+      warning(sprintf("Failed to source %s: %s", file, e$message))
+    })
+  }
+}
+
+#' Initialize Environment Settings
+#'
+#' @return NULL
+#' @export
+initialize_environment <- function() {
+  options(
+    shiny.maxRequestSize = 100 * 1024^2,
+    shiny.fullstacktrace = TRUE,
+    shiny.trace = TRUE
+  )
+  
+  ensure_files_exist()
 }

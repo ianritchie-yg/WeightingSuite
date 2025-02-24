@@ -1,8 +1,11 @@
 # global.R
 # Initialize package management
+
 if (!require("pacman")) install.packages("pacman", repos = "https://cloud.r-project.org")
 library(pacman)
+library(yaml)
 
+# Define list of required packages
 packages <- c(
   # UI Framework and Core Functionality
   "shiny",
@@ -39,8 +42,25 @@ packages <- c(
   "shinyvalidate"
 )
 
-# Use pacman to load all packages
+# Load all required packages using pacman
 pacman::p_load(char = packages)
+
+# Suppress package loading messages
+suppressPackageStartupMessages({
+  library(shiny)
+  library(shinydashboard)
+  library(shinydashboardPlus)
+  library(shinyjs)
+  library(shinyWidgets)
+  library(waiter)
+  library(DT)
+  library(plotly)
+  library(tidyverse)
+  library(haven)
+  library(openxlsx)
+  library(readxl)
+  library(rmarkdown)
+})
 
 # Initialize logging system
 log_setup <- function() {
@@ -63,4 +83,30 @@ log_setup <- function() {
 log_setup()
 
 # Set global options
-options(shiny.maxRequestSize = 300*1024^2) # Sets max size to 300MB
+options(shiny.maxRequestSize = 300 * 1024^2)  # Sets max size to 300MB
+
+# Create required directories if they don't exist
+dir.create("www/css", recursive = TRUE, showWarnings = FALSE)
+dir.create("www/js", recursive = TRUE, showWarnings = FALSE)
+dir.create("logs", showWarnings = FALSE)
+
+# Load configuration
+config <- yaml::read_yaml("config.yml")
+
+# Source all R files
+for(file in list.files("R", pattern = "\\.R$", full.names = TRUE)) {
+  source(file)
+}
+
+# Source helper files
+source("R/utils.R")
+source("R/error_handling.R")
+source("R/visualizations.R")
+source("R/export.R")
+source("R/statistics.R")
+
+# Initialize environment
+initialize_environment()
+
+# Ensure required directories exist
+ensure_files_exist()

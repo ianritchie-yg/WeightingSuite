@@ -44,68 +44,45 @@ collect_ipw_params <- function(input, data) {
 
 #' Collect Calibration Parameters
 collect_calibration_params <- function(input, data) {
-  list(
-    target_vars = input$cal_target_vars,
-    target_values = input$cal_target_values,
-    method = input$cal_method,
-    bounds = c(input$cal_lower_bound, input$cal_upper_bound),
-    max_iter = input$cal_max_iter
-  )
+    list(
+        target_vars = input$cal_target_vars,
+        target_values = input$cal_target_values,
+        method = input$cal_method,
+        bounds = c(input$cal_lower_bound, input$cal_upper_bound),
+        max_iter = input$cal_max_iter
+    )
 }
 
 #' Collect RAKE Parameters  
 collect_rake_params <- function(input, data) {
-  list(
-    margin_vars = input$rake_margin_vars,
-    margin_values = input$rake_margin_values,
-    epsilon = input$rake_epsilon,
-    max_iter = input$rake_max_iter
-  )
+    list(
+        margin_vars = input$rake_margin_vars,
+        margin_values = input$rake_margin_values,
+        epsilon = input$rake_epsilon,
+        max_iter = input$rake_max_iter
+    )
 }
 
-#' Parameter Validation Functions
-validate_params <- function(method, params) {
-  switch(method,
-    "post_stratification" = {
-      required <- post_strat_params$required
-    },
-    "ipw" = {
-      required <- ipw_params$required
-    },
-    "calibration" = {
-      required <- calibration_params$required
-    },
-    "rake" = {
-      required <- rake_params$required
-    }
-  )
-  
-  missing_params <- required[!required %in% names(params)]
-  if (length(missing_params) > 0) {
-    stop(sprintf("Missing required parameters for %s: %s",
-                 method, paste(missing_params, collapse = ", ")))
-  }
-  
-  return(TRUE)
-}
-
-#' Parameter Validation Function
-#' @param method Weighting method
+#' Validate parameters based on weighting method
+#' @param method Weighting method (e.g., "post_stratification", "ipw", "calibration", "rake")
 #' @param params List of parameters
+#' @return TRUE if all required parameters are present; otherwise, an error is thrown.
 validate_params <- function(method, params) {
   tryCatch({
+    # Normalize method to lowercase for consistency
+    method <- tolower(method)
     required <- switch(method,
-      "Post-Stratification" = post_strat_params$required,
-      "IPW" = ipw_params$required, 
-      "Calibration" = calibration_params$required,
-      "RAKE" = rake_params$required,
+      "post_stratification" = post_strat_params$required,
+      "ipw" = ipw_params$required, 
+      "calibration" = calibration_params$required,
+      "rake" = rake_params$required,
       stop("Invalid method")
     )
     
     missing <- required[!required %in% names(params)]
     if (length(missing) > 0) {
-      stop(sprintf("Missing required parameters: %s", 
-           paste(missing, collapse=", ")))
+      stop(sprintf("Missing required parameters for %s: %s", 
+                   method, paste(missing, collapse = ", ")))
     }
     
     return(TRUE)

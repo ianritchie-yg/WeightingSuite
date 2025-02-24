@@ -1,7 +1,7 @@
-
 #' Create post-stratification specific report section
 create_post_strat_section <- function() {
   return('
+
 ## Post-Stratification Details
 
 ### Strata Analysis
@@ -100,9 +100,63 @@ title: "Survey Weighting Report (%s Method)"
 date: "`r format(Sys.time(), \"%%Y-%%m-%%d %%H:%%M:%%S\")`"
 output: 
   html_document:
-    theme: cosmo
+    theme: null
     toc: true
     toc_float: true
+    css: styles/custom.css
+    includes:
+      in_header:
+        - |
+          <style>
+          :root {
+            --primary-color: #2C3E50;
+            --secondary-color: #E74C3C;
+            --accent-color: #3498DB;
+            --text-color: #333333;
+            --background-color: #FFFFFF;
+          }
+          
+          body {
+            font-family: "Open Sans", sans-serif;
+            color: var(--text-color);
+            line-height: 1.6;
+          }
+          
+          h1, h2, h3 {
+            color: var(--primary-color);
+            font-weight: 600;
+          }
+          
+          .table {
+            width: 100%%;
+            margin-bottom: 1rem;
+            border-collapse: collapse;
+          }
+          
+          .table th {
+            background-color: var(--primary-color);
+            color: white;
+          }
+          
+          .table td, .table th {
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+          }
+          
+          .tocify {
+            border: none;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+          }
+          
+          .tocify .tocify-item a {
+            color: var(--primary-color);
+          }
+          
+          .tocify .tocify-item.active a {
+            color: var(--secondary-color);
+          }
+          </style>
 ---
 
 ## Overview

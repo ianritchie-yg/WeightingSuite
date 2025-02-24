@@ -15,7 +15,7 @@ The Survey Weighting Suite is a comprehensive tool for applying various weightin
 
 ## Getting Started
 
-1. Launch the application by running:
+1. Launch the application by running the following in R:
    ```r
    shiny::runApp()
 2. Install required dependencies first if needed:

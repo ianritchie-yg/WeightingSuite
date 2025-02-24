@@ -131,8 +131,9 @@ check_system_requirements <- function() {
 
 #' Initialize application environment
 #' @param force Logical; if TRUE, overwrites existing directories
+#' @param silent Logical; if TRUE, suppresses status messages
 #' @return Invisible TRUE if successful
-initialize_environment <- function(force = FALSE) {
+initialize_environment <- function(force = FALSE, silent = FALSE) {
   # Create directory structure
   dirs <- c(
     "data",         # For data storage
@@ -176,7 +177,7 @@ initialize_environment <- function(force = FALSE) {
         temp = "temp"
       ),
       settings = list(
-        max_upload_size = 30 * 1024^2,  # 30MB
+        max_upload_size = 300 * 1024^2,  # 300MB
         theme = "sunset",
         locale = "en_US.UTF-8"
       )
@@ -221,7 +222,7 @@ setup <- function(silent = FALSE, force = FALSE) {
     install_dependencies(silent = silent)
     
     # Initialize environment
-    initialize_environment(force = force)
+    initialize_environment(force = force, silent = silent)
     
     if (!silent) {
       message("Setup completed successfully.")

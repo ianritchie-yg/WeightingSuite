@@ -2,7 +2,7 @@
 setup_app <- function() {
   # Create directory structure
   dirs <- c("R", "tests/testthat", "www", "docs")
-  sapply(dirs, dir.create, recursive = TRUE)
+  sapply(dirs, dir.create, recursive = TRUE, showWarnings = FALSE)
   
   # Install required packages
   required_packages <- c(
@@ -22,12 +22,14 @@ setup_app <- function() {
     "rmarkdown"
   )
   
-  new_packages <- required_packages[!required_packages %in% installed.packages()]
+  # Bug fix: Extract package names from installed.packages()
+  installed_pkgs <- installed.packages()[, "Package"]
+  new_packages <- required_packages[!required_packages %in% installed_pkgs]
   if (length(new_packages) > 0) {
     install.packages(new_packages)
   }
   
-  # Create empty files (you'll need to fill these with the content we discussed)
+  # Create empty files (you'll need to fill these with the necessary content)
   file.create(c(
     "app.R",
     "config.yml",

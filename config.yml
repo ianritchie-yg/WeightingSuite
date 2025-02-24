@@ -2,21 +2,50 @@
 
 app:
   name: "Survey Weighting Suite"
-  version: "1.0.0"
+  version: "2.14.0"
   debug: false
   
 settings:
-  max_upload_size: 30 * 1024^2  # 30MB
+  max_upload_size: 314572800  # 300MB
   max_rows: 1000000
-  max_iterations: 1000
-  default_convergence_threshold: 1e-6
+  max_iterations: 100
+  default_convergence_threshold: 0.001
+  default_theme: 'blueberry'  # Updated default theme
 
 # update to YouGov colorz lulz  
 theme:
-  primary_color: "#1a1a2e"
-  secondary_color: "#e94560"
-  accent_color: "#16213e"
-  waiter_color: "rgba(26, 26, 46, 0.8)"
+  current: "blueberry"  # default theme
+  presets:
+    grapefruit:
+      core: "#FF412C"
+      light_60: "#FF8080"
+      light_80: "#FF6756"
+      dark_1: "#E8281F"
+      dark_2: "#C20400"
+    plum:
+      core: "#9F29FF"
+      light_60: "#C57FFF"
+      light_80: "#B254FF"
+      dark_1: "#801DB8"
+      dark_2: "#660AB8"
+    blueberry:
+      core: "#0684EE"
+      light_60: "#B9CAF5"
+      light_80: "#88B8F1"
+      dark_1: "#0051B9"
+      dark_2: "#003CA8"
+    avocado:
+      core: "#41CA4B"
+      light_60: "#83DFCB"
+      light_80: "#5AC8A8"
+      dark_1: "#1B8B78"
+      dark_2: "#008B45"
+    pomegranate:
+      core: "#FF2A80"
+      light_60: "#FF7BB3"
+      light_80: "#FF4B90"
+      dark_1: "#CB0429"
+      dark_2: "#A50165"
   
 methods:
   post_stratification:
@@ -44,16 +73,16 @@ export:
     - xlsx
     - sav
     - rds
-  max_size: 500 * 1024^2  # 500MB
+  max_size: 524288000  # 500MB
   
 logging:
   level: "INFO"
   file: "logs/app.log"
-  max_size: 10 * 1024^2  # 10MB
+  max_size: 104857600  # 100MB
   backup_count: 5
   
 security:
-  max_file_size: 30 * 1024^2  # 30MB
+  max_file_size: 314572800  # 300MB
   allowed_extensions:
     - .csv
     - .xlsx
@@ -61,6 +90,6 @@ security:
     - .rds
 
 shiny:
-  maxRequestSize: 30 * 1024^2  # 30MB
-  maxFileSize: 30 * 1024^2  # 30MB
+  maxRequestSize: 314572800  # 300MB
+  maxFileSize: 314572800  # 300MB
 

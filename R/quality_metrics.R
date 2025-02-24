@@ -55,7 +55,11 @@ calculate_method_specific_metrics <- function(weights, method, additional_params
     cv = sd(weights) / mean(weights),
     range = range(weights)
   )
-  method_metrics <- switch(method,
+  
+  # Normalize method string to lowercase for matching
+  method_lower <- tolower(method)
+  
+  method_metrics <- switch(method_lower,
     "raking" = {
       list(
         margin_deviation = calculate_margin_deviation(weights,
@@ -68,10 +72,10 @@ calculate_method_specific_metrics <- function(weights, method, additional_params
                                                     additional_params$constraints)
       )
     },
-    "ps" = {
+    "ipw" = {
       list(
         balance_score = calculate_balance_score(weights,
-                                                additional_params$covariates)
+                                                  additional_params$covariates)
       )
     },
     list()  # Default empty list for other methods

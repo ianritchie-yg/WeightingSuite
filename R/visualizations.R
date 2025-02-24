@@ -21,8 +21,8 @@ create_weight_distribution_plot <- function(weights) {
     ) %>%
     add_annotations(
       text = sprintf("Mean: %.2f<br>SD: %.2f",
-                    mean(weights, na.rm = TRUE),
-                    sd(weights, na.rm = TRUE)),
+                     mean(weights, na.rm = TRUE),
+                     sd(weights, na.rm = TRUE)),
       x = 0.95,
       y = 0.95,
       xref = "paper",
@@ -90,9 +90,9 @@ create_numeric_diagnostic_plot <- function(var_data, weights, var_name) {
   
   p <- plot_ly() %>%
     add_histogram(data = plot_data, x = ~value, name = "Unweighted",
-                 opacity = 0.5) %>%
+                  opacity = 0.5) %>%
     add_histogram(data = plot_data, x = ~value, weights = ~weight,
-                 name = "Weighted", opacity = 0.5) %>%
+                  name = "Weighted", opacity = 0.5) %>%
     layout(
       title = list(
         text = sprintf("Distribution of %s", var_name),
